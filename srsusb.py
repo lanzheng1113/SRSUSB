@@ -2,6 +2,7 @@
 import os
 import sqlite3
 import codecs
+import winsupport
 from optparse import OptionParser
 
 
@@ -370,6 +371,24 @@ class SrsTransport:
             print u"插入完成"
             conn.close()
 
+    """
+    # 读其中的sys, 如果没有找到任何值则返回True
+    # 如果读取到的任意一个sys不是x64格式的文件则返回False，否则返回True
+    def __check_file_is_x64(self, inf_file_full_path):
+        # 这个是笨办法，不可取。要读inf,然后找其中的.sys
+        a = os.path.dirname(inf_file_full_path)
+        for root, dirs, files in os.walk(a):
+            if not os.path.samefile(a,root):
+                # 只管本级目录
+                continue
+            else:
+                for i in files:
+                    fp = os.path.join(root, i)
+                    # 不知道扩展DLL怎么返回True, 先返回1
+                    if fp.lower().endswith(".sys") and winsupport.is_pe_64(fp) == 0:
+                        return False
+        return True
+    """
     def tran(self, sc_index, default_arch, default_os_ver, is_primary):
         sc_index_full_path = os.path.join(self.__work_dir, sc_index)
         if not os.path.exists(sc_index_full_path):
