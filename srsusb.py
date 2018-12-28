@@ -3,6 +3,7 @@ import os
 import sqlite3
 import codecs
 import winsupport
+import re
 from optparse import OptionParser
 
 
@@ -129,6 +130,7 @@ config = {
     }
 }
 
+
 class DriverItem:
     u"""
     驱动
@@ -149,8 +151,9 @@ class DriverItem:
     driver_release_time = ""
     driver_version = ""
     folder = ""
+    default_os_ver = ""
 
-    def __init__(self, string_device):
+    def __init__(self, string_device, v_default_os_ver):
         sl = string_device.split('|')
         if len(sl) <= 1:
             self.is_valid = False
@@ -173,6 +176,7 @@ class DriverItem:
         self.driver_release_time = sl[13]
         self.driver_version = sl[14]
         self.folder = sl[15]
+        self.default_os_ver = v_default_os_ver
         # ql2300;ql2300.sys
         # if self.device_unknown_1 != "":
         #    print u"奇异的4号:{0},在[{1}]中".format(self.device_unknown_1, string_device)
@@ -296,10 +300,10 @@ class SrsTrans:
             if not is_primary:
                 table_name = "s_hidandpkg_v"
             insert_str = "INSERT INTO {0} " \
-                         "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE) " \
-                         "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}')" \
+                         "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE,OS2) " \
+                         "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}')" \
                 .format(table_name, i.hardware_id, i.device_describe, relate_path_of_inf, i.inf_os_version, arch,
-                        i.device_class_name, i.driver_version, i.driver_release_time)
+                        i.device_class_name, i.driver_version, i.driver_release_time, default_os_ver)
             try:
                 c.execute(insert_str)
             except sqlite3.OperationalError as e:
@@ -343,10 +347,10 @@ class SrsTransport:
                 for i in obj_array:
                     relate_path_of_inf = i.folder + "\\" + i.inf_relate_path
                     insert_str = "INSERT INTO {0} " \
-                                 "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE) " \
-                                 "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}')" \
+                                 "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE,OS2) " \
+                                 "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}')" \
                         .format(table_name, i.hardware_id, i.device_describe, relate_path_of_inf, i.inf_os_version,
-                                i.inf_arch_tag, i.device_class_name, i.driver_version, i.driver_release_time)
+                                i.inf_arch_tag, i.device_class_name, i.driver_version, i.driver_release_time, i.default_os_ver)
                     try:
                         c.execute(insert_str)
                         self.__insert_count = self.__insert_count + 1
@@ -358,10 +362,10 @@ class SrsTransport:
                 for i in obj_array:
                     relate_path_of_inf = i.folder + "\\" + i.inf_relate_path
                     insert_str = "INSERT INTO {0} " \
-                                 "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE) " \
-                                 "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}')" \
+                                 "(HID,HIDNAME,PATH,OS,PF,TYPE,DRVVER,DRVDATE,OS2) " \
+                                 "VALUES ('{1}','{2}','{3}','{4}','{5}','{6}','{7}','{8}','{9}')" \
                         .format(table_name, i.hardware_id, i.device_describe, relate_path_of_inf, i.inf_os_version,
-                                i.inf_arch_tag, i.device_class_name, i.driver_version, i.driver_release_time)
+                                i.inf_arch_tag, i.device_class_name, i.driver_version, i.driver_release_time, i.default_os_ver)
                     try:
                         c.execute(insert_str)
                         self.__insert_count = self.__insert_count + 1
@@ -371,24 +375,6 @@ class SrsTransport:
             print u"插入完成"
             conn.close()
 
-    """
-    # 读其中的sys, 如果没有找到任何值则返回True
-    # 如果读取到的任意一个sys不是x64格式的文件则返回False，否则返回True
-    def __check_file_is_x64(self, inf_file_full_path):
-        # 这个是笨办法，不可取。要读inf,然后找其中的.sys
-        a = os.path.dirname(inf_file_full_path)
-        for root, dirs, files in os.walk(a):
-            if not os.path.samefile(a,root):
-                # 只管本级目录
-                continue
-            else:
-                for i in files:
-                    fp = os.path.join(root, i)
-                    # 不知道扩展DLL怎么返回True, 先返回1
-                    if fp.lower().endswith(".sys") and winsupport.is_pe_64(fp) == 0:
-                        return False
-        return True
-    """
     def tran(self, sc_index, default_arch, default_os_ver, is_primary):
         sc_index_full_path = os.path.join(self.__work_dir, sc_index)
         if not os.path.exists(sc_index_full_path):
@@ -400,7 +386,7 @@ class SrsTransport:
         for line in file_object:
             line = line.strip('\r')
             line = line.strip('\n')
-            dr = DriverItem(line)
+            dr = DriverItem(line, default_os_ver)
             if dr.is_valid:
                 inf_object_array.append(dr)
                 self.__item_count_in_files = self.__item_count_in_files + 1
@@ -434,18 +420,22 @@ class SrsTransport:
                 # 自带arch, 但是arch的名字和配置的名字相反。我们需要输出警告
                 inf_full_path = os.path.join(self.__work_dir, relate_path_of_inf)
                 if i.inf_arch_tag == "x86" and -1 != i.folder.find("x64"):
+                    print u"---"
                     print u"检查可疑项[{0}]-[{1}]-[{2}],在文件{3}".format(i.hardware_id, relate_path_of_inf, i.inf_arch_tag,
                                                              sc_index_full_path)
-                    if not self.__inf_check(inf_full_path, "x86"):
+                    if (not self.__inf_check(inf_full_path, "x86")) \
+                            or (not self.__check_sys_arch(inf_full_path, False)):
                         print u"跳过架构设置(arch)可能有问题的项"
                         self.__ignore_count = self.__ignore_count + 1
                         continue
                     else:
                         print u"通过检测。"
                 if i.inf_arch_tag == "x64" and -1 != i.folder.find("x86"):
-                    print u"[{0}]-[{1}]-[{2}],在文件{3}".format(i.hardware_id, relate_path_of_inf, i.inf_arch_tag,
+                    print u"---"
+                    print u"检查可疑项[{0}]-[{1}]-[{2}],在文件{3}".format(i.hardware_id, relate_path_of_inf, i.inf_arch_tag,
                                                              sc_index_full_path)
-                    if not self.__inf_check(inf_full_path, "x64"):
+                    if (not self.__inf_check(inf_full_path, "x64")) \
+                            or (not self.__check_sys_arch(inf_full_path, True)):
                         print u"跳过架构设置(arch)可能有问题的项"
                         self.__ignore_count = self.__ignore_count + 1
                         continue
@@ -485,7 +475,69 @@ class SrsTransport:
                 # 给了变量obj_array，当obj_array发生改变时to_insert_obj_map[i.hardware_id]同时发生改变。
         return True
 
+    u"""
+    # 读其中的sys, 如果没有找到任何值则返回True
+    # 如果读取到的任意一个sys不是x64格式的文件则返回False，否则返回True
+    def __check_file_is_x64(self, inf_file_full_path):
+        # 这个是笨办法，不可取。要读inf,然后找其中的.sys
+        a = os.path.dirname(inf_file_full_path)
+        for root, dirs, files in os.walk(a):
+            if not os.path.samefile(a,root):
+                # 只管本级目录
+                continue
+            else:
+                for i in files:
+                    fp = os.path.join(root, i)
+                    # 不知道扩展DLL怎么返回True, 先返回1
+                    if fp.lower().endswith(".sys") and winsupport.is_pe_64(fp) == 0:
+                        return False
+        return True
+    """
+    def __check_sys_arch(self, inf_file_full_path, is_x64_or_x86):
+        directory_name = os.path.dirname(inf_file_full_path)
+        file_encoding = ""
+        file_object = open(inf_file_full_path, 'r')
+        str_bom = file_object.read(2)
+        if str_bom == '\xFF\xFE':
+            file_encoding = "utf-16-le"
+        if file_encoding != "":
+            file_object.close()
+            file_object = codecs.open(inf_file_full_path, 'r', file_encoding)
+        processed_sys_file = []
+        return_value = True
+        for line in file_object:
+            l = line.strip('\r')
+            l = l.strip('\n')
+            pos = l.find(".sys")
+            if pos != -1:
+                r = re.search("(\\w+).sys", l)
+                if r is not None:
+                    span = r.span()
+                    if span is not None and len(span) >= 2:
+                        fn = l[span[0]: span[1]]
+                        if fn not in processed_sys_file:
+                            processed_sys_file.append(fn)
+                            full_sys_path = os.path.join(directory_name, fn)
+                            if os.path.exists(full_sys_path):
+                                if is_x64_or_x86:
+                                    bx = (winsupport.is_pe_64(full_sys_path) == 1)
+                                    print u"检查文件{0}是否为x64：{1}".format(full_sys_path,bx)
+                                else:
+                                    bx = (winsupport.is_pe_64(full_sys_path) == 0)
+                                    print u"检查文件{0}是否为x86：{1}".format(full_sys_path,bx)
+                                if not bx:
+                                    return_value = False
+                                    break
+        file_object.close()
+        return return_value
+
     def __inf_check(self, inf_file_path, arch_to_check):
+        u"""
+        检查INF文件是否支持参数指定的架构，函数通过在文件中搜索[manufacturer]的值判断。
+        :param inf_file_path: 需要检查的INF文件
+        :param arch_to_check: 需要检查的架构类型，x86/x64之一，不支持ia64
+        :return: 如果在INF文件的[manufacturer]一节中找到了需要检查的架构（x64/x86）标记(NTAMD64/NTX86)则返回TRUE，否则返回FALSE。
+        """
         if arch_to_check != "x64" and arch_to_check != "x86":
             return False
         to_find1 = "NTAMD64"
