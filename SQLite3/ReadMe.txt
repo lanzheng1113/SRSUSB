@@ -1,4 +1,7 @@
-﻿一. 编译加密的Sqlite3
+﻿这个模块是SQLITE3静态库，支持带密码访问。
+
+
+一. 编译加密的Sqlite3
 1. 下载wxSqlite3-1.9.9.zip后,解压到wxsqlite3-1.9.9
 (http://sourceforge.net/projects/wxcode/files/Components/)
 2. 下载www.Sqlite.org的sqlite-amalgamation-3_XXXX.zip,将压缩包中的文件全部提取到 wxsqlite3-1.9.9\sqlite3\secure\src\codec-c 下(写这篇文章时用的版本是3.6.23.1).
