@@ -1,27 +1,33 @@
-﻿========================================================================
-    静态库：SQLite3 项目概述
-========================================================================
+﻿一. 编译加密的Sqlite3
+1. 下载wxSqlite3-1.9.9.zip后,解压到wxsqlite3-1.9.9
+(http://sourceforge.net/projects/wxcode/files/Components/)
+2. 下载www.Sqlite.org的sqlite-amalgamation-3_XXXX.zip,将压缩包中的文件全部提取到 wxsqlite3-1.9.9\sqlite3\secure\src\codec-c 下(写这篇文章时用的版本是3.6.23.1).
+编辑 sqlite3.def , 添加 下面两个函数导出
+    sqlite3_rekey
+    sqlite3_key
+3. 打开VS,新建一个"static lib",工程名为"Sqlite3Encrypt",保存到"wxsqlite3-1.9.9\sqlite3"下.
+4. 导入文件:只要单纯的导入 sqlite3secure.c 这个文件就好了.
+5. 设置工程属性: (为方便使用 将Sqlite3的输出调整到wxSqlite3工程的输出目录中).在这一步中,分为Debug与Release版.( 可以通过新建工程时建一个DLL工程,这样就内置了两个版本的配置,然后再将"常规->配置类型"设置为"静态库(lib)"就可以了.)
+常规->输出目录:
+        "..\..\lib\vc_lib"
+C/C++->预处理->预处理器定义:
+        SQLITE3ENCRYPT_EXPORTS
+        SQLITE_ENABLE_FTS3
+        SQLITE_ENABLE_FTS3_PARENTHESIS
+        SQLITE_ENABLE_RTREE
+        SQLITE_SECURE_DELETE
+        SQLITE_SOUNDEX
+        SQLITE_ENABLE_COLUMN_METADATA
+        SQLITE_HAS_CODEC
+        CODEC_TYPE=CODEC_TYPE_AES128
+C/C++->输出文件->程序数据库文件名:
+        "..\..\lib\vc_lib\Sqlite3EncryptD.pdb" //Debug版
+       "..\..\lib\vc_lib\Sqlite3Encrypt.pdb"   //Release版
+管理员->输出文件:
+        $(OutDir)\$(ProjectName)D.lib //Debug版
+        $(OutDir)\$(ProjectName).lib    //Release版
+6. 编译生成 Sqlite3EncryptD.lib,Sqlite3Encrypt.lib
 
-应用程序向导已为您创建了此 SQLite3 库项目。
+release x86 C++ 代码生成 要用MTD编译
 
-本文件概要介绍组成 SQLite3 应用程序的每个文件的内容。
-
-
-SQLite3.vcxproj
-    这是使用应用程序向导生成的 VC++ 项目的主项目文件，其中包含生成该文件的 Visual C++ 的版本信息，以及有关使用应用程序向导选择的平台、配置和项目功能的信息。
-
-SQLite3.vcxproj.filters
-    这是使用“应用程序向导”生成的 VC++ 项目筛选器文件。它包含有关项目文件与筛选器之间的关联信息。在 IDE 中，通过这种关联，在特定节点下以分组形式显示具有相似扩展名的文件。例如，“.cpp”文件与“源文件”筛选器关联。
-
-
-/////////////////////////////////////////////////////////////////////////////
-
-StdAfx.h, StdAfx.cpp
-    这些文件用于生成名为 SQLite3.pch 的预编译头 (PCH) 文件和名为 StdAfx.obj 的预编译类型文件。
-
-/////////////////////////////////////////////////////////////////////////////
-其他注释:
-
-应用程序向导使用“TODO:”注释来指示应添加或自定义的源代码部分。
-
-/////////////////////////////////////////////////////////////////////////////
+release x86 C++ 代码生成 要用MT编译
